@@ -4,13 +4,8 @@ import pyautogui, time
 import sys
 from PIL import Image
 
-
 # todo: fix halftone, make keyboard interupt work (maybe right click to stop), add gui, add bounds for drawing. figure out color
-
-
-def get_speed(distance):
-    return max(0, distance/10000)
-
+SPEED = 0.05
 
 def map_to_grey(x):
     if x > 128:
@@ -104,7 +99,7 @@ def draw_line(len):  # modify length to make it darker (add more) or light (subt
     if len == 0:
         pyautogui.click()
     else:
-        pyautogui.dragRel(len, 0, .01)
+        pyautogui.dragRel(len, 0, SPEED)
 
 
 def draw(image):
@@ -112,28 +107,27 @@ def draw(image):
     kill_height = pyautogui.size().height - 100  # prevent program from clicking menu bar
     drawing = False
     drawStart = 0
-    pyautogui.click()
     array = image.load()  # assumes single value color probably need some type(x) is check
     width, height = image.size
 
     for y in range(height):
         if startY + y > kill_height:
             return
-        pyautogui.moveTo(startX, startY + y)  # move to next line
         drawing = False
         drawStart = 0
         for x in range(width):
             if is_white(array[x, y]):  # if white
                 if drawing:  # draw line up until this point
                     drawing = False
+                    pyautogui.moveTo(startX + drawStart, startY + y, SPEED)
                     draw_line(x - drawStart - 1)
+                    pyautogui.moveTo(startX + x, startY + y, SPEED)
             else:  # if black
                 if not drawing:  # move cursors to beginning of line
                     drawing = True
                     drawStart = x
-                    pyautogui.moveTo(startX + x, startY + y)
         if drawing:
-            draw_line(width - drawStart)
+            draw_line(width - drawStart - 1)
 
 
 def draw_picture(image):
@@ -145,11 +139,12 @@ def main():
     if len(sys.argv) < 2:
         raise RuntimeError('Usage: this_script.py <input file>')
     input_filename = sys.argv[1]
-    pyautogui.PAUSE = 0.001
+    pyautogui.PAUSE = 0.002
     pyautogui.FAILSAFE = True # upper left corner to kill program, but good luck getting there
+    # log off or ctrl+alt+del to kill script
 
     image = dither(input_filename)
-    # draw_picture(image)
+    draw_picture(image)
 
 
 if __name__ == '__main__':
