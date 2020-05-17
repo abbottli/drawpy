@@ -1,46 +1,49 @@
 #!/usr/bin/python
 
 import pyautogui, time
-import sys
+import sys, os
 from PIL import Image
 
-# todo: fix halftone, make keyboard interupt work (maybe right click to stop), add gui, add bounds for drawing. figure out color
+# todo: make keyboard interrupt work (maybe right click to stop), add gui, add bounds for drawing. refactor all of this
 SPEED = 0.05
+RESOURCE_FOLDER = 'resources'
 
-def map_to_grey(x):
-    if x > 128:
-        if x > 196:
-            return 255
-        else:
-            return 196
-    if x > 64:
-        return 64
-    return 0
+# scuffed enum
+class ImageType:
+    BLACK_WHITE = 0
+    DITHER = 1
+    HALFTONE = 2
 
 
-def greyscale():
-    img = Image.open('bamgotcha.jpg').resize((500,500))
-    r = img.convert('L').point(map_to_grey, mode='L')
-    r.save('grey.png')
-    return r
+def resource_folder(file):
+    return os.path.join(RESOURCE_FOLDER, file)
 
 
-def blackwhite(file):
-    img = Image.open(file)
+def convert_image(image, type=ImageType.DITHER):
+    if ImageType.DITHER == type:
+        return dither(image)
+    elif ImageType.BLACK_WHITE == type:
+        return blackwhite(image)
+    elif ImageType.HALFTONE == type:
+        return halftone(image)
+
+
+def blackwhite(image):
     thresh = 128
     fn = lambda x : 255 if x > thresh else 0
-    r = img.convert('L').point(fn, mode='1')
-    r.save('bw.png')
+    r = image.convert('L').point(fn, mode='1')
+    r.save(resource_folder('bw.png'))
     return r
 
-def dither(file):
-    img = Image.open(file).convert('1')
-    img.save('dither.png')
-    return img
+
+def dither(image):
+    image = image.convert('1')
+    image.save(resource_folder('dither.png'))
+    return image
 
 
-def halftone(file):
-    image = Image.open(file).convert('L')
+def halftone(image):
+    image = image.convert('L')
     width, height = image.size
     pixels = image.load()
 
@@ -83,8 +86,17 @@ def halftone(file):
                 pixels[down] = 0
                 pixels[diag] = 0
 
-    image.save('halftone.png')
+    image.save(resource_folder('halftone.png'))
     return image
+
+
+# type can be either NEAREST, BILINEAR (linear interpolation), or LANCZOS (downsampling filter)
+def rescale_image(image, scale, type=Image.NEAREST):
+    if scale != 1:
+        scaled = tuple([int(x * scale) for x in image.size])
+        resized = image.resize(scaled, type)
+        resized.save(resource_folder('resized.png'))
+        return resized
 
 
 def is_white(color):
@@ -143,7 +155,14 @@ def main():
     pyautogui.FAILSAFE = True # upper left corner to kill program, but good luck getting there
     # log off or ctrl+alt+del to kill script
 
-    image = dither(input_filename)
+    if not os.path.exists(RESOURCE_FOLDER):
+        os.mkdir(RESOURCE_FOLDER)
+
+    scale = 1
+
+    image = Image.open(input_filename)
+    image = rescale_image(image, scale)
+    image = convert_image(image, type=ImageType.DITHER)
     draw_picture(image)
 
 

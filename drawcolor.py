@@ -1,35 +1,54 @@
 #!/usr/bin/python
 
 import pyautogui, time
-import sys
+import sys, os
 from PIL import Image
 import math
 import random
 
-# todo: make keyboard interupt work (maybe right click to stop), add gui, add bounds for drawing. figure out color. add brush size. do one color at a time
-
+# todo: make keyboard interupt work (maybe right click to stop), add gui, add bounds for drawing.
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 SPEED = 0.05
+RESOURCE_FOLDER = 'resources'
+
+# scuffed enum
+class DrawType:
+    ALL_AT_ONCE = 0
+    ONE_AT_A_TIME = 1
+
+
+def resource_folder(file):
+    return os.path.join(RESOURCE_FOLDER, file)
 
 
 # remove transparent pixels by pasting original image over white background
-def remove_transparent(file):
-    image = Image.open(file)
+def remove_transparent(image):
     no_transparent = Image.new("RGB", image.size, "WHITE")
     no_transparent.paste(image, (0,0), image.convert('RGBA'))
     return no_transparent
 
 
-def dither_image(file):
-    return remove_transparent(file).convert('P', dither=Image.FLOYDSTEINBERG).convert('RGB')
+def dither_image(image):
+    return image.convert('P', dither=Image.FLOYDSTEINBERG)
 
 
-def nearest_color_pic(file, color_map, dither=True):
+# type can be either NEAREST, BILINEAR (linear interpolation), or LANCZOS (downsampling filter)
+def rescale_image(image, scale, type=Image.NEAREST):
+    if scale != 1:
+        scaled = tuple([int(x * scale) for x in image.size])
+        resized = image.resize(scaled, type)
+        resized.save(resource_folder('resized.png'))
+        return resized
+
+
+def nearest_color_pic(image, color_map, dither=True):
+    image = remove_transparent(image)
+
     if dither:
-        image = dither_image(file)
-    else:
-        image = remove_transparent(file).convert('RGB')
+        image = dither_image(image)
+
+    image = image.convert('RGB')
     width, height = image.size
     pixels = image.load()
     cache = {}
@@ -44,7 +63,7 @@ def nearest_color_pic(file, color_map, dither=True):
                 pixels[x, y] = near
                 cache[color] = near
 
-    image.save('nearest_color.png')
+    image.save(resource_folder('nearest_color.png'))
     return image
 
 
@@ -56,6 +75,7 @@ def draw_line(len):  # modify length to make it darker (add more) or light (subt
 
 
 # random pauses to try to guarantee color gets clicked. sometimes it's too fast for the input buffer to keep up
+# idk if this is still needed
 def click_color(color_map, color, initial_position):
     if color in color_map:
         time.sleep(.01)
@@ -151,11 +171,14 @@ def draw_one_color_each_pass(image, color_map, random=False):
     print('finished drawing')
 
 
-def draw_color_picture(image, color_map, random=False):
+def draw_color_picture(image, color_map, random=False, type=DrawType.ALL_AT_ONCE):
     print('waiting 2 seconds')
     time.sleep(2)  # two seconds to get ready
-    # draw_color(image, color_map)
-    draw_one_color_each_pass(image, color_map, random)
+
+    if DrawType.ALL_AT_ONCE == type:
+        draw_one_color_each_pass(image, color_map, random)
+    elif DrawType.ONE_AT_A_TIME == type:
+        draw_color(image, color_map)
 
 
 # color closeness approximation from https://www.compuphase.com/cmetric.htm
@@ -194,13 +217,22 @@ def main():
     pyautogui.FAILSAFE = True # upper left corner to kill program, but good luck getting there
     # log off or ctrl+alt+del to kill script
 
-    # image = dither(input_filename)
-    # draw_picture(image)
+    palette = 'colors.png'
 
+    if not os.path.isfile(palette):
+        raise RuntimeError('Unable to find provided color palette for file={}'.format(palette))
+
+    if not os.path.exists(RESOURCE_FOLDER):
+        os.mkdir(RESOURCE_FOLDER)
+
+    scale = 1
     dither = True
     random_colors = False
-    color_map = create_color_palette('colors.png')
-    image = nearest_color_pic(input_filename, color_map, dither)
+    color_map = create_color_palette('colors.png')  # palette needs to be on the screen. screen color changers might mess with this
+    image = Image.open(input_filename)
+    image = rescale_image(image, scale)
+    image = nearest_color_pic(image, color_map, dither=dither)
+    
     draw_color_picture(image, color_map, random_colors)
 
 
