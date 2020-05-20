@@ -33,13 +33,14 @@ def dither_image(image):
     return image.convert('P', dither=Image.FLOYDSTEINBERG)
 
 
-# type can be either NEAREST, BILINEAR (linear interpolation), or LANCZOS (downsampling filter)
-def rescale_image(image, scale, type=Image.NEAREST):
+# more info on resizing type https://pillow.readthedocs.io/en/stable/handbook/concepts.html#concept-filters
+def rescale_image(image, scale, type=Image.BICUBIC):
     if scale != 1:
         scaled = tuple([int(x * scale) for x in image.size])
         resized = image.resize(scaled, type)
         resized.save(resource_folder('resized.png'))
         return resized
+    return image
 
 
 def nearest_color_pic(image, color_map, dither=True):
