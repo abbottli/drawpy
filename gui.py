@@ -1,15 +1,15 @@
 import os
-import pyautogui
 import tkinter as tk
-from tkinter.filedialog import askopenfilename, asksaveasfilename
+from tkinter.filedialog import askopenfilename
+
+import pyautogui
 from PIL import ImageTk, Image
-from enum import Enum
+
 import draw as drawbw
 import drawcolor
 
-
 RESOURCE_FOLDER = 'resources'
-palette = 'colors.png'
+PALETTE_FILE = 'colors.png'
 DRAW_OPTIONS = [
     'BW',
     'BW Halftone',
@@ -38,6 +38,7 @@ draw_choice = tk.StringVar()
 scale_choice = tk.StringVar()
 color_map = {}
 
+
 def draw():
     global color_map
     print('drawing')
@@ -45,14 +46,14 @@ def draw():
     if draw_type.startswith('BW'):
         drawbw.draw_picture(converted_image)
     elif draw_type.startswith('Color'):
-        color_map = drawcolor.create_color_palette(palette)  # recalculate coors for colors in case it moved
-        drawcolor.draw_color_picture(converted_image, color_map, random=False)
+        color_map = drawcolor.create_color_palette(PALETTE_FILE)  # recalculate coors for colors in case it moved
+        drawcolor.draw_color_picture(converted_image, color_map, random_color=False)
     print('done drawing')
 
 
-def swap_image(panel, swap_image):
-    tk_image = ImageTk.PhotoImage(swap_image)
-    panel.configure(image = tk_image)
+def swap_image(panel, image):
+    tk_image = ImageTk.PhotoImage(image)
+    panel.configure(image=tk_image)
     panel.image = tk_image  # save so image isn't deleted by gc
 
 
@@ -65,7 +66,7 @@ def convert_image(converted_image_panel, scale_entry):
     converted_image = drawbw.rescale_image(base_image, float(scale_entry.get()), SCALE_OPTIONS.index(scale_type))
 
     if 'BW' == draw_type:
-        converted_image = drawbw.blackwhite(converted_image)
+        converted_image = drawbw.black_white(converted_image)
     elif 'BW Halftone' == draw_type:
         converted_image = drawbw.halftone(converted_image)
     elif 'BW Dither' == draw_type:
@@ -76,8 +77,6 @@ def convert_image(converted_image_panel, scale_entry):
         converted_image = drawcolor.nearest_color_pic(converted_image, color_map, dither=True)
     else:
         converted_image = converted_image
-    width, height = converted_image.size
-    a, b = base_image.size
 
     swap_image(converted_image_panel, converted_image)
 
@@ -103,14 +102,15 @@ def open_file(base_image_panel, converted_image_panel, scale_entry):
 def main():
     global color_map
 
-    if not os.path.isfile(palette):
-        raise RuntimeError('Unable to find provided color palette for file={}'.format(palette))
+    if not os.path.isfile(PALETTE_FILE):
+        raise RuntimeError('Unable to find provided color palette for file={}'.format(PALETTE_FILE))
     if not os.path.exists(RESOURCE_FOLDER):
         os.mkdir(RESOURCE_FOLDER)
 
-    color_map = drawcolor.create_color_palette(palette)  # palette needs to be on the screen. screen color changers might mess with this
+    # palette needs to be on the screen. screen color changers might mess with this
+    color_map = drawcolor.create_color_palette(PALETTE_FILE)
 
-    pyautogui.PAUSE = 0.002
+    pyautogui.PAUSE = 0.01
     pyautogui.FAILSAFE = True
     window.title("DrawPy")
 
@@ -146,6 +146,7 @@ def main():
     draw_dropdown.pack()
     scale_label.pack(side=tk.LEFT)
     scale_entry.pack(side=tk.LEFT)
+    scale_dropdown.pack()
 
     base_label.pack()
     base_image_panel.pack()
